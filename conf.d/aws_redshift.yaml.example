@@ -1,0 +1,21 @@
+init_config:
+
+instances:
+#  - name: (required) STRING. It will be used to uniquely identify your metrics as they will be tagged with this name
+#    cluster_name (conditional required): The Redshift cluster name
+#    cluster_address (conditional required): The Redshift cluster address
+#    cluster_port (conditional required): The Redshift cluster port
+#      cluster_name or cluster_address and cluster_port is required
+#    db_name (required): The Redshift database name
+#    user_name (required): The Redshift master user name
+#    user_password (required): The Redshift master user password
+#    aws_access_key_id (optional): AWS access key id
+#    aws_secret_access_key (optional): AWS secret access key
+#    aws_region (optional): AWS region, if run on EC2 get metadata
+#    thresholds: (optional) Two ranges: critical and warning
+#         warning: (optional) state InService number of instances
+#         critical: (optional) state InService number of instances
+#    tags:
+#      - env:staging
+#      - cluster:big-data
+#

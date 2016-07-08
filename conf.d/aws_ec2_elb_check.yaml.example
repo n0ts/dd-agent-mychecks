@@ -1,0 +1,16 @@
+init_config:
+
+instances:
+#  - name: (required) STRING. It will be used to uniquely identify your metrics as they will be tagged with this name
+#    load_balancer_name (required): The load balancer name
+#    instance_id (optional): The EC2 instance id
+#    aws_access_key_id (optional): AWS access key id
+#    aws_secret_access_key (optional): AWS secret access key
+#    aws_region (optional): AWS region, if run on EC2 get metadata
+#    thresholds: (optional) Two ranges: critical and warning
+#         warning: (optional) state InService number of instances
+#         critical: (optional) state InService number of instances
+#    tags:
+#      - env:staging
+#      - cluster:big-data
+#
