@@ -2,32 +2,13 @@ import boto.redshift
 import boto.utils
 import datetime
 import psycopg2
+import time
 
 from checks import AgentCheck
 
 
-QUERY_NODE = """\
-select node, sum(rows)
-  from stv_slices m
-  join stv_tbl_perm s on s.slice = m.slice
-  group by node
-"""
-
-QUERY_TABLE = """\
- select name, sum(rows) as rows
-  from stv_tbl_perm
-  group by name
-"""
-
-QUERY_TABLE_STATUS = """\
-  select "table", size, tbl_rows, skew_rows
-  from svv_table_info
-"""
-
-QUERY_LOG_TYPE = """\
-  select count(*)
-    from svl_qlog
-    where starttime >= '%s' and endtime <= '%s' and substring like '%s';
+QUERY_TABLE_COUNT = """\
+SELECT count(DISTINCT tablename) FROM pg_table_def WHERE schemaname = 'public'
 """
 
 class AwsRedshiftStatus(AgentCheck):
@@ -76,6 +57,7 @@ class AwsRedshiftStatus(AgentCheck):
         cluster_name, cluster_address, cluster_port, db_name, user_name, user_password, \
             aws_access_key_id, aws_secret_access_key, aws_region, \
             tags = self._load_conf(instance)
+        start = time.time()
         if cluster_address == None and cluster_port == None:
             service_check_tags = [ "cluster_name:%s" % cluster_name ]
         else:
@@ -104,20 +86,6 @@ class AwsRedshiftStatus(AgentCheck):
                 password=user_password
             )
 
-            results = self._db_query(conn, QUERY_NODE)
-            for row in results:
-                self.gauge('aws_redshift_status.node_slice.%d' % row[0], row[1], tags=tags)
-
-            results = self._db_query(conn, QUERY_TABLE)
-            for row in results:
-                self.gauge('aws_redshift_status.table.%s' % row[0], row[1], tags=tags)
-
-            results = self._db_query(conn, QUERY_TABLE_STATUS)
-            for row in results:
-                self.gauge('aws_redshift_status.table_status.%s.size' % row[0], row[1], tags=tags)
-                self.gauge('aws_redshift_status.table_status.%s.tbl_rows' % row[0], row[2], tags=tags)
-                self.gauge('aws_redshift_status.table_status.%s.skew_rows' % row[0], row[3], tags=tags)
-
             min_collection_interval = instance.get('min_collection_interval', self.init_config.get(
                     'min_collection_interval',
                         self.DEFAULT_MIN_COLLECTION_INTERVAL
@@ -127,10 +95,11 @@ class AwsRedshiftStatus(AgentCheck):
             starttime = (today - datetime.timedelta(seconds=min_collection_interval)).strftime('%Y-%m-%d %H:%M:%S.%f')
             endtime = today.strftime('%Y-%m-%d %H:%M:%S.%f')
 
-            for query in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
-                results = self._db_query(conn, QUERY_LOG_TYPE % (starttime, endtime, '%s %%' % query))
-                for row in results:
-                    self.gauge('aws_redshift_status.query.%s' % query, row[0], tags=tags)
+            results = self._db_query(conn, QUERY_TABLE_COUNT)
+            self.gauge('aws.redshift_status.table_count', results[0][0], tags=tags)
+
+            running_time = time.time() - start
+            self.gauge('aws.redshift_status.response_time', running_time, tags=tags)
 
             self.service_check(
                 'aws_redshift_status.up',
