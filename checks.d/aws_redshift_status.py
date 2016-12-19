@@ -63,12 +63,11 @@ class AwsRedshiftStatus(AgentCheck):
         else:
             service_check_tags = [ "cluster_address:%s" % cluster_address, "cluster_port:%s" % cluster_port ]
 
-        redshift = boto.redshift.connect_to_region(aws_region,
-                                                   aws_access_key_id=aws_access_key_id,
-                                                   aws_secret_access_key=aws_secret_access_key)
-
         try:
             if cluster_address == None and cluster_port == None:
+                redshift = boto.redshift.connect_to_region(aws_region,
+                                                           aws_access_key_id=aws_access_key_id,
+                                                           aws_secret_access_key=aws_secret_access_key)
                 clusters = redshift.describe_clusters(cluster_name)
                 if len(clusters) == 0:
                     raise Exception("Cluster is empty")
