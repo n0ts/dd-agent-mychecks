@@ -66,6 +66,8 @@ class AwsRedshiftStatus(AgentCheck):
         if aws_region is None:
             aws_region = boto.utils.get_instance_metadata()['placement']['availability-zone'][:-1]
 
+        query = instance.get('query', False)
+
         tags = instance.get('tags', [])
         tags.append('name:%s' % name)
         if cluster_name is not None:
@@ -73,7 +75,7 @@ class AwsRedshiftStatus(AgentCheck):
         tags.append('aws_region:%s' % aws_region)
 
         return name, cluster_name, cluster_address, cluster_port, db_name, user_name, user_password, \
-            aws_access_key_id, aws_secret_access_key, aws_region, tags
+            aws_access_key_id, aws_secret_access_key, aws_region, query, tags
 
     def _db_query(self, conn, query):
         cursor = conn.cursor()
@@ -82,7 +84,7 @@ class AwsRedshiftStatus(AgentCheck):
 
     def check(self, instance):
         name, cluster_name, cluster_address, cluster_port, db_name, user_name, user_password, \
-            aws_access_key_id, aws_secret_access_key, aws_region, \
+            aws_access_key_id, aws_secret_access_key, aws_region, query, \
             tags = self._load_conf(instance)
         start = time.time()
         service_check_tags = [ 'name:%s' % name ]
@@ -106,12 +108,14 @@ class AwsRedshiftStatus(AgentCheck):
                 cluster_address = endpoint['Address']
                 cluster_port = endpoint['Port']
 
+            connect_timeout = self.init_config.get('connect_timeout', 5)
             conn = psycopg2.connect(
                 host=cluster_address,
                 port=cluster_port,
                 database=db_name,
                 user=user_name,
-                password=user_password
+                password=user_password,
+                connect_timeout=connect_timeout,
             )
 
             min_collection_interval = instance.get('min_collection_interval', self.init_config.get(
@@ -123,33 +127,34 @@ class AwsRedshiftStatus(AgentCheck):
             starttime = (today - datetime.timedelta(seconds=min_collection_interval)).strftime('%Y-%m-%d %H:%M:%S.%f')
             endtime = today.strftime('%Y-%m-%d %H:%M:%S.%f')
 
-            results = self._db_query(conn, QUERY_TABLE_COUNT)
-            self.gauge('aws.redshift_status.table_count', results[0][0], tags=tags)
+            if query:
+                results = self._db_query(conn, QUERY_TABLE_COUNT)
+                self.gauge('aws.redshift_status.table_count', results[0][0], tags=tags)
 
-            results = self._db_query(conn, QUERY_NODE)
-            for row in results:
-                gauge_tags = tags[:]
-                gauge_tags.append('node:%d' % row[0])
-                self.gauge('aws_redshift_status.node_slice', row[1], tags=gauge_tags)
-
-            results = self._db_query(conn, QUERY_TABLE)
-            for row in results:
-                gauge_tags = tags[:]
-                gauge_tags.append('table:%s' % row[0])
-                self.gauge('aws_redshift_status.table', row[1], tags=gauge_tags)
-
-            results = self._db_query(conn, QUERY_TABLE_STATUS)
-            for row in results:
-                gauge_tags = tags[:]
-                gauge_tags.append('table:%s' % row[0])
-                self.gauge('aws_redshift_status.table_status.size', row[1], tags=gauge_tags)
-                self.gauge('aws_redshift_status.table_status.tbl_rows', row[2], tags=gauge_tags)
-                self.gauge('aws_redshift_status.table_status.skew_rows', row[3], tags=gauge_tags)
-
-            for query in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
-                results = self._db_query(conn, QUERY_LOG_TYPE % (starttime, endtime, '%s %%' % query))
+                results = self._db_query(conn, QUERY_NODE)
                 for row in results:
-                    self.gauge('aws_redshift_status.query.%s' % query, row[0], tags=tags)
+                    gauge_tags = tags[:]
+                    gauge_tags.append('node:%d' % row[0])
+                    self.gauge('aws_redshift_status.node_slice', row[1], tags=gauge_tags)
+
+                results = self._db_query(conn, QUERY_TABLE)
+                for row in results:
+                    gauge_tags = tags[:]
+                    gauge_tags.append('table:%s' % row[0])
+                    self.gauge('aws_redshift_status.table', row[1], tags=gauge_tags)
+
+                results = self._db_query(conn, QUERY_TABLE_STATUS)
+                for row in results:
+                    gauge_tags = tags[:]
+                    gauge_tags.append('table:%s' % row[0])
+                    self.gauge('aws_redshift_status.table_status.size', row[1], tags=gauge_tags)
+                    self.gauge('aws_redshift_status.table_status.tbl_rows', row[2], tags=gauge_tags)
+                    self.gauge('aws_redshift_status.table_status.skew_rows', row[3], tags=gauge_tags)
+
+                for query in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
+                    results = self._db_query(conn, QUERY_LOG_TYPE % (starttime, endtime, '%s %%' % query))
+                    for row in results:
+                        self.gauge('aws_redshift_status.query.%s' % query, row[0], tags=tags)
 
             running_time = time.time() - start
             self.gauge('aws.redshift_status.response_time', running_time, tags=tags)
