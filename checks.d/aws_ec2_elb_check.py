@@ -11,15 +11,15 @@ class AwsEc2ElbCheck(AgentCheck):
 
     def _load_conf(self, instance):
         load_balancer_name = instance.get('load_balancer_name')
-        if load_balancer_name == None:
-            raise Exception("Bad configuration. You must specify a load_balancer_name")
+        if load_balancer_name is None:
+            raise Exception('Bad configuration. You must specify a load_balancer_name')
 
         instance_id = instance.get('instance_id')
 
         aws_access_key_id = instance.get('aws_access_key_id')
         aws_secret_access_key = instance.get('aws_secret_access_key')
         aws_region = instance.get('aws_region')
-        if aws_region == None:
+        if aws_region is None:
             aws_region = boto.utils.get_instance_metadata()['placement']['availability-zone'][:-1]
 
         thresholds = instance.get('thresholds')
@@ -52,11 +52,11 @@ class AwsEc2ElbCheck(AgentCheck):
             count = threshold = thresholds['critical']
 
         status_str = {
-            AgentCheck.OK: "OK",
-            AgentCheck.WARNING: "WARNING",
-            AgentCheck.CRITICAL: "CRITICAL"
+            AgentCheck.OK: 'OK',
+            AgentCheck.WARNING: 'WARNING',
+            AgentCheck.CRITICAL: 'CRITICAL'
         }
-        message_str = "instance status 'InService' is %s - %s/%s"
+        message_str = 'instance status 'InService' is %s - %s/%s'
         self.service_check(
             'aws_ec2_elb_check.up_in_service',
             status,
@@ -68,7 +68,7 @@ class AwsEc2ElbCheck(AgentCheck):
         load_balancer_name, instance_id, \
             aws_access_key_id, aws_secret_access_key, aws_region, \
             thresholds, tags = self._load_conf(instance)
-        service_check_tags = [ "load_balancer_name:%s" % load_balancer_name ]
+        service_check_tags = [ 'load_balancer_name:%s' % load_balancer_name ]
 
         elb = boto.ec2.elb.connect_to_region(aws_region,
                                              aws_access_key_id=aws_access_key_id,
@@ -90,12 +90,12 @@ class AwsEc2ElbCheck(AgentCheck):
                     instance_by_state[0]['count'] += 1
                 elif health_state.state == 'OutOfService':
                     instance_by_state[1]['count'] += 1
-                    self.warning("%s is %s - %s"
+                    self.warning('%s is %s - %s'
                                  % (health_state.instance_id, health_state.state,
                                     health_state.reason_code))
                 else:
                     instance_by_state[2]['count'] += 1
-                    self.warning("%s is %s - %s"
+                    self.warning('%s is %s - %s'
                                  % (health_state.instance_id, health_state.state,
                                     health_state.reason_code))
 
