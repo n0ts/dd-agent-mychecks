@@ -156,8 +156,8 @@ class AwsRedshiftStatus(AgentCheck):
                     for row in results:
                         self.gauge('aws_redshift_status.query.%s' % q, row[0], tags=tags)
 
-            running_time = time.time() - start
-            self.gauge('aws.redshift_status.response_time', running_time, tags=tags)
+                running_time = time.time() - start
+                self.gauge('aws.redshift_status.response_time', running_time, tags=tags)
 
             self.service_check(
                 'aws_redshift_status.up',
