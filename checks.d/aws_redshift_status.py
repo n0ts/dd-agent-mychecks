@@ -151,10 +151,10 @@ class AwsRedshiftStatus(AgentCheck):
                     self.gauge('aws_redshift_status.table_status.tbl_rows', row[2], tags=gauge_tags)
                     self.gauge('aws_redshift_status.table_status.skew_rows', row[3], tags=gauge_tags)
 
-                for query in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
+                for q in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
                     results = self._db_query(conn, QUERY_LOG_TYPE % (starttime, endtime, '%s %%' % query))
                     for row in results:
-                        self.gauge('aws_redshift_status.query.%s' % query, row[0], tags=tags)
+                        self.gauge('aws_redshift_status.query.%s' % q, row[0], tags=tags)
 
             running_time = time.time() - start
             self.gauge('aws.redshift_status.response_time', running_time, tags=tags)
