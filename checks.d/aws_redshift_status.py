@@ -108,7 +108,7 @@ class AwsRedshiftStatus(AgentCheck):
                 cluster_address = endpoint['Address']
                 cluster_port = endpoint['Port']
 
-            connect_timeout = self.init_config.get('connect_timeout', 5)
+            connect_timeout = self.init_config.get('connect_timeout', 3)
             conn = psycopg2.connect(
                 host=cluster_address,
                 port=cluster_port,
@@ -157,7 +157,7 @@ class AwsRedshiftStatus(AgentCheck):
                         self.gauge('aws_redshift_status.query.%s' % q, row[0], tags=tags)
 
                 running_time = time.time() - start
-                self.gauge('aws.redshift_status.response_time', running_time, tags=tags)
+                self.gauge('aws_redshift_status.response_time', running_time, tags=tags)
 
             self.service_check(
                 'aws_redshift_status.up',
