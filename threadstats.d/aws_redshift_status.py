@@ -111,7 +111,7 @@ class AwsRedshiftStatus:
             yaml_file = os.environ.get('DATADOG_CONF', '/etc/dd-agent/conf.d/aws_redshift_status.yaml')
             yaml_data = yaml.load(file(yaml_file))
             init_config = yaml_data['init_config']
-            interval = init_config.get('min_collection_interval', 600)
+            interval = init_config.get('min_collection_interval', 300)
 
             stats = ThreadStats()
             stats.start(flush_interval=10, roll_up_interval=1, device=None,
