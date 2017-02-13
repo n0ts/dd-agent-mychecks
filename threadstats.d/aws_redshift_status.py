@@ -1,3 +1,4 @@
+import argparse
 import boto.redshift
 import boto.utils
 import datetime
@@ -49,11 +50,20 @@ select count(*)
 
 class AwsRedshiftStatus:
     def __init__(self, config):
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--from-cron', action='store_true')
+        parser.add_argument('--debug', action='store_true')
+        args = parser.parse_args()
+
+        log_level = logging.INFO
+        if args.from_cron:
+            log_level = logging.WARN
+        elif args.debug:
+            log_level = logging.DEBUG
+
+        logging.basicConfig(level=log_level)
         config.initialize_logging(self.__class__.__name__)
         self.log = config.log
-        debug = os.environ.get('DEBUG', False)
-        if debug:
-            self.log.setLevel(logging.DEBUG)
 
         try:
             agent_config = get_config()
