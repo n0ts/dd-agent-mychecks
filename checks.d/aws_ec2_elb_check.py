@@ -56,7 +56,7 @@ class AwsEc2ElbCheck(AgentCheck):
             AgentCheck.WARNING: 'WARNING',
             AgentCheck.CRITICAL: 'CRITICAL'
         }
-        message_str = 'instance status 'InService' is %s - %s/%s'
+        message_str = 'instance status \'InService\' is %s - %s/%s'
         self.service_check(
             'aws_ec2_elb_check.up_in_service',
             status,
