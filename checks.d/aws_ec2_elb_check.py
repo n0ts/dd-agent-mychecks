@@ -44,12 +44,15 @@ class AwsEc2ElbCheck(AgentCheck):
 
         if in_service_index is False:
             status = AgentCheck.CRITICAL
-        elif instance_by_state[in_service_index]['count'] < thresholds['warning']:
-            status = AgentCheck.WARNING
-            count = threshold = thresholds['warning']
-        elif instance_by_state[in_service_index]['count'] < thresholds['critical']:
+            count = 0
+        elif instance_by_state[in_service_index]['count'] <= thresholds['critical']:
             status = AgentCheck.CRITICAL
-            count = threshold = thresholds['critical']
+            count = instance_by_state[in_service_index]['count']
+            threshold = thresholds['critical']
+        elif instance_by_state[in_service_index]['count'] <= thresholds['warning']:
+            status = AgentCheck.WARNING
+            count = instance_by_state[in_service_index]['count']
+            threshold = thresholds['warning']
 
         status_str = {
             AgentCheck.OK: 'OK',
