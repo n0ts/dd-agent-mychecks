@@ -61,9 +61,18 @@ class AwsRedshiftStatus:
         elif args.debug:
             log_level = logging.DEBUG
 
-        logging.basicConfig(level=log_level)
-        config.initialize_logging(self.__class__.__name__)
-        self.log = config.log
+        log_format = config.get_log_format(self.__class__.__name__)
+        logging.basicConfig(
+            filename=config.get_logging_config().get('collector_log_file'),
+            format=log_format,
+            level=log_level,
+        )
+
+        if not args.from_cron:
+            console = logging.StreamHandler()
+            console.setLevel(log_level)
+            console.setFormatter(logging.Formatter(log_format))
+            logging.getLogger('').addHandler(console)
 
         try:
             agent_config = get_config()
@@ -117,8 +126,10 @@ class AwsRedshiftStatus:
         return cursor.fetchall()
 
     def check(self):
+        logging.info('check info')
         try:
-            yaml_file = os.environ.get('DATADOG_CONF', '/etc/dd-agent/conf.d/aws_redshift_status.yaml')
+            yaml_file = os.environ.get('DATADOG_CONF',
+                                       '%s/aws_redshift_status.yaml' % config.get_confd_path())
             yaml_data = yaml.load(file(yaml_file))
             init_config = yaml_data['init_config']
             interval = init_config.get('min_collection_interval', 300)
@@ -129,7 +140,7 @@ class AwsRedshiftStatus:
 
             start = time.time()
             for instance in yaml_data['instances']:
-                self.log.debug('instance name is %s' % instance['name'])
+                logging.debug('instance name is %s' % instance['name'])
 
                 name, cluster_name, cluster_address, cluster_port, db_name, user_name, user_password, \
                     aws_access_key_id, aws_secret_access_key, aws_region, query, \
@@ -149,66 +160,66 @@ class AwsRedshiftStatus:
                     cluster_port = endpoint['Port']
 
                 connect_timeout = init_config.get('connect_timeout', 5)
-                conn = psycopg2.connect(
-                    host=cluster_address,
-                    port=cluster_port,
-                    database=db_name,
-                    user=user_name,
-                    password=user_password,
-                    connect_timeout=connect_timeout,
-                )
+                try:
+                    conn = psycopg2.connect(
+                        host=cluster_address,
+                        port=cluster_port,
+                        database=db_name,
+                        user=user_name,
+                        password=user_password,
+                        connect_timeout=connect_timeout,
+                    )
 
-                today = datetime.datetime.utcnow()
-                starttime = (today - datetime.timedelta(seconds=interval)).strftime('%Y-%m-%d %H:%M:%S.%f')
-                endtime = today.strftime('%Y-%m-%d %H:%M:%S.%f')
+                    today = datetime.datetime.utcnow()
+                    starttime = (today - datetime.timedelta(seconds=interval)).strftime('%Y-%m-%d %H:%M:%S.%f')
+                    endtime = today.strftime('%Y-%m-%d %H:%M:%S.%f')
 
-                results = self._db_query(conn, QUERY_TABLE_COUNT)
-                stats.gauge('aws.redshift_status.table_count', results[0][0], tags=tags)
-                self.log.debug('aws.redshift_status.table_count is %s' % results[0][0])
+                    results = self._db_query(conn, QUERY_TABLE_COUNT)
+                    stats.gauge('aws.redshift_status.table_count', results[0][0], tags=tags)
+                    logging.debug('aws.redshift_status.table_count is %s' % results[0][0])
 
-                results = self._db_query(conn, QUERY_NODE)
-                for row in results:
-                    gauge_tags = tags[:]
-                    gauge_tags.append('node:%s' % row[0])
-                    stats.gauge('aws_redshift_status.node_slice', row[1], tags=gauge_tags)
-                    self.log.debug('aws_redshift_status.node_slice is %s' % row[1])
-
-                results = self._db_query(conn, QUERY_TABLE_RECORD)
-                for row in results:
-                    gauge_tags = tags[:]
-                    gauge_tags.append('table:%s' % row[0])
-                    stats.gauge('aws_redshift_status.table_records', row[1], tags=gauge_tags)
-                    self.log.debug('aws_redshift_status.table_records is %s' % row[1])
-
-                results = self._db_query(conn, QUERY_TABLE_STATUS)
-                for row in results:
-                    gauge_tags = tags[:]
-                    gauge_tags.append('table:%s' % row[0])
-                    stats.gauge('aws_redshift_status.table_status.size', row[1], tags=gauge_tags)
-                    self.log.debug('aws_redshift_status.table_status.size is %s' % row[1])
-                    stats.gauge('aws_redshift_status.table_status.tbl_rows', row[2], tags=gauge_tags)
-                    self.log.debug('aws_redshift_status.table_status.tbl_rows is %s' % row[2])
-                    stats.gauge('aws_redshift_status.table_status.skew_rows', row[3], tags=gauge_tags)
-                    self.log.debug('aws_redshift_status.table_status.skew_rows is %s' % row[3])
-
-                for q in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
-                    results = self._db_query(conn, QUERY_LOG_TYPE % (starttime, endtime, '%s %%' % q))
+                    results = self._db_query(conn, QUERY_NODE)
                     for row in results:
-                        stats.gauge('aws_redshift_status.query.%s' % q, row[0], tags=tags)
-                        self.log.debug('aws_redshift_status.query.%s is %s' % (q, row[0]))
+                        gauge_tags = tags[:]
+                        gauge_tags.append('node:%s' % row[0])
+                        stats.gauge('aws_redshift_status.node_slice', row[1], tags=gauge_tags)
+                        logging.debug('aws_redshift_status.node_slice is %s' % row[1])
 
-                running_time = time.time() - start
-                stats.gauge('aws_redshift_status.response_time', running_time, tags=tags)
-                self.log.debug('aws_redshift_status.response_time is %s' % running_time)
+                    results = self._db_query(conn, QUERY_TABLE_RECORD)
+                    for row in results:
+                        gauge_tags = tags[:]
+                        gauge_tags.append('table:%s' % row[0])
+                        stats.gauge('aws_redshift_status.table_records', row[1], tags=gauge_tags)
+                        logging.debug('aws_redshift_status.table_records is %s' % row[1])
+
+                    results = self._db_query(conn, QUERY_TABLE_STATUS)
+                    for row in results:
+                        gauge_tags = tags[:]
+                        gauge_tags.append('table:%s' % row[0])
+                        stats.gauge('aws_redshift_status.table_status.size', row[1], tags=gauge_tags)
+                        logging.debug('aws_redshift_status.table_status.size is %s' % row[1])
+                        stats.gauge('aws_redshift_status.table_status.tbl_rows', row[2], tags=gauge_tags)
+                        logging.debug('aws_redshift_status.table_status.tbl_rows is %s' % row[2])
+                        stats.gauge('aws_redshift_status.table_status.skew_rows', row[3], tags=gauge_tags)
+                        logging.debug('aws_redshift_status.table_status.skew_rows is %s' % row[3])
+
+                    for q in [ 'select', 'insert', 'update', 'delete', 'analyze' ]:
+                        results = self._db_query(conn, QUERY_LOG_TYPE % (starttime, endtime, '%s %%' % q))
+                        for row in results:
+                            stats.gauge('aws_redshift_status.query.%s' % q, row[0], tags=tags)
+                            logging.debug('aws_redshift_status.query.%s is %s' % (q, row[0]))
+
+                        running_time = time.time() - start
+                        stats.gauge('aws_redshift_status.response_time', running_time, tags=tags)
+                        logging.debug('aws_redshift_status.response_time is %s' % running_time)
+                finally:
+                    conn.close()
 
             stats.flush()
             stop = stats.stop()
-            self.log.debug('Stopping is %s' % stop)
+            logging.debug('Stopping is %s' % stop)
         except Exception:
-            self.log.warning(sys.exc_info())
-
-        finally:
-            conn.close()
+            logging.warning(sys.exc_info())
 
 
 if __name__ == '__main__':
