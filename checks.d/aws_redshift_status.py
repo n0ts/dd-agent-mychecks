@@ -94,6 +94,7 @@ class AwsRedshiftStatus(AgentCheck):
             service_check_tags.append('cluster_address:%s' % cluster_address)
             service_check_tags.append('cluster_port:%s' % cluster_port)
 
+        conn = None
         try:
             if cluster_address is None and cluster_port is None:
                 redshift = boto.redshift.connect_to_region(aws_region,
@@ -172,6 +173,6 @@ class AwsRedshiftStatus(AgentCheck):
                 tags=tags,
                 message='Exception - %s' % (e)
             )
-
         finally:
-            conn.close()
+            if conn:
+                conn.close()
