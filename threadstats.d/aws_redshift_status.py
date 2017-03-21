@@ -159,8 +159,9 @@ class AwsRedshiftStatus:
                     cluster_address = endpoint['Address']
                     cluster_port = endpoint['Port']
 
-                connect_timeout = init_config.get('connect_timeout', 5)
+                conn = None
                 try:
+                    connect_timeout = init_config.get('connect_timeout', 5)
                     conn = psycopg2.connect(
                         host=cluster_address,
                         port=cluster_port,
@@ -213,7 +214,8 @@ class AwsRedshiftStatus:
                         stats.gauge('aws_redshift_status.response_time', running_time, tags=tags)
                         logging.debug('aws_redshift_status.response_time is %s' % running_time)
                 finally:
-                    conn.close()
+                    if conn:
+                        conn.close()
 
             stats.flush()
             stop = stats.stop()
